@@ -1,49 +1,39 @@
 import re
 import tldextract
 
-def extract_urls(text):
-    url_pattern = re.compile(
-        r'(https?://[^\s]+|www\.[^\s]+)',
+def clean_token(token):
+    return token.strip().strip('.,);:=]>"\'“”‘’<>[]{}')
+
+def extract_domains_from_text(text):
+    pattern = re.compile(
+        r'\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b',
         re.IGNORECASE
     )
-    return url_pattern.findall(text)
 
-def clean_url(url):
-    return url.rstrip('.,);:=]>"\'')
-
-def extract_domain(url):
-    cleaned = clean_url(url)
-
-    if not cleaned.startswith(('http://', 'https://')):
-        cleaned = 'http://' + cleaned
-
-    extracted = tldextract.extract(cleaned)
-
-    if extracted.domain and extracted.suffix:
-        return f"{extracted.domain}.{extracted.suffix}"
-
-    return None
-
-def extract_unique_domains(input_file, output_file):
-    with open(input_file, 'r', encoding='utf-8') as f:
-        text = f.read()
-
-    urls = extract_urls(text)
-
+    matches = pattern.findall(text)
     domains = set()
 
-    for url in urls:
-        domain = extract_domain(url)
-        if domain:
-            domains.add(domain.lower())
+    for match in matches:
+        token = clean_token(match)
 
-    sorted_domains = sorted(domains)
+        extracted = tldextract.extract(token)
+
+        if extracted.domain and extracted.suffix:
+            domains.add(f"{extracted.domain}.{extracted.suffix}".lower())
+
+    return sorted(domains)
+
+def extract_unique_domains(input_file, output_file):
+    with open(input_file, 'r', encoding='utf-8', errors='ignore') as f:
+        text = f.read()
+
+    domains = extract_domains_from_text(text)
 
     with open(output_file, 'w', encoding='utf-8') as f:
-        for d in sorted_domains:
-            f.write(f"{d}\n")
+        for domain in domains:
+            f.write(domain + '\n')
 
-    print(f"Extracted {len(sorted_domains)} unique domains to {output_file}")
+    print(f"Extracted {len(domains)} unique domains to {output_file}")
 
 if __name__ == "__main__":
     extract_unique_domains("input.txt", "domains_output.txt")
